@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard de Postulantes</title>
+<style>
+:root{
+  color-scheme: light;
+  --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+  --c-proceso:#2a78d6; --c-noapto:#eb6834; --c-apto:#1baf7a; --c-sin:#b9b8b0; --c-main:#2a78d6;
+  --good:#006300;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+    --c-proceso:#3987e5; --c-noapto:#d95926; --c-apto:#199e70; --c-sin:#5a5955; --c-main:#3987e5;
+    --good:#0ca30c;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+  --c-proceso:#3987e5; --c-noapto:#d95926; --c-apto:#199e70; --c-sin:#5a5955; --c-main:#3987e5;
+  --good:#0ca30c;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1240px;margin:0 auto;padding:20px 16px 48px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:16px}
+h1{font-size:24px;margin:0;font-weight:650}
+.sub{color:var(--ink2);font-size:13px;margin-top:2px}
+.btn{background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer}
+.btn:hover{border-color:var(--axis)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.chip{background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:999px;padding:7px 14px;font:inherit;font-size:13px;cursor:pointer}
+.chip:hover{border-color:var(--axis)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.chip small{opacity:.7;margin-left:6px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+.filters label{font-size:12px;color:var(--ink2);display:flex;flex-direction:column;gap:3px}
+select{background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font:inherit;font-size:14px;min-width:170px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.kpi .n{font-size:30px;font-weight:650;line-height:1.1}
+.kpi .l{font-size:13px;color:var(--ink2);margin-top:4px}
+.kpi .d{font-size:12px;color:var(--muted);margin-top:2px}
+.kpi .dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;min-width:0}
+.s12{grid-column:span 12}.s8{grid-column:span 8}.s6{grid-column:span 6}.s4{grid-column:span 4}
+.card h2{font-size:15px;margin:0 0 2px;font-weight:650}
+.card .hint{font-size:12.5px;color:var(--ink2);margin:0 0 10px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin:4px 0 8px;font-size:12.5px;color:var(--ink2)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart text{fill:var(--muted);font:11.5px system-ui,-apple-system,"Segoe UI",sans-serif}
+.chart text.val{fill:var(--ink2)}
+.chart text.lab{fill:var(--ink2);font-size:12px}
+.empty{color:var(--ink2);padding:28px 8px;text-align:center}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--grid);white-space:nowrap}
+th:first-child,td:first-child,th.l,td.l{text-align:left}
+th{font-weight:600;color:var(--ink2);font-size:12.5px;cursor:default}
+th.sort{cursor:pointer}
+th.sort:hover{color:var(--ink)}
+td.l{white-space:normal;max-width:360px}
+.scroll{overflow-x:auto}
+tr.tot td{font-weight:650;border-top:1px solid var(--axis)}
+.bar{display:inline-block;height:8px;border-radius:3px;background:var(--c-apto);vertical-align:middle;margin-left:8px}
+#tip{position:fixed;z-index:10;display:none;pointer-events:none;background:var(--surface);color:var(--ink);border:1px solid var(--axis);border-radius:8px;padding:8px 10px;font-size:12.5px;box-shadow:0 4px 14px rgba(0,0,0,.18);max-width:300px}
+#tip b{font-weight:650}
+#tip .r{display:flex;align-items:center;gap:6px;margin-top:2px}
+#tip i{display:inline-block;width:9px;height:9px;border-radius:3px}
+.req{margin:0 0 14px}
+.req .t{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;margin-bottom:5px}
+.req .t span:last-child{color:var(--ink2);white-space:nowrap}
+.req .pista{height:12px;border-radius:4px;background:var(--grid);overflow:hidden}
+.req .pista i{display:block;height:100%;border-radius:4px;background:var(--c-main)}
+.req.todo .pista i{background:var(--c-apto)}
+.req.todo .t{font-weight:650}
+.req .nota{font-size:12px;color:var(--muted);margin-top:3px}
+.foot{color:var(--muted);font-size:12px;margin-top:20px}
+@media (max-width:900px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .s8,.s6,.s4{grid-column:span 12}
+  .kpi .n{font-size:26px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Postulantes — reclutamiento Netcall</h1>
+      <div class="sub" id="actualizado">Cargando datos…</div>
+    </div>
+    <button class="btn" id="tema" type="button">Modo oscuro</button>
+  </header>
+
+  <div class="chips" id="chips" role="group" aria-label="Elegir campaña"></div>
+  <div class="filters">
+    <label>Mes<select id="fMes"></select></label>
+    <label>Plataforma<select id="fPlat"></select></label>
+    <button class="btn" id="limpiar" type="button" style="align-self:flex-end">Quitar filtros</button>
+  </div>
+
+  <div id="contenido">
+    <div class="kpis" id="kpis"></div>
+    <div class="grid">
+      <section class="card s8">
+        <h2>Postulantes por día</h2>
+        <p class="hint">Cuántos llegaron cada día. Pasa el mouse sobre la línea para ver el número.</p>
+        <div class="chart" id="cDia" role="img" aria-label="Postulantes por día"></div>
+      </section>
+      <section class="card s4">
+        <h2>Por plataforma</h2>
+        <p class="hint">De dónde vienen (Facebook, Instagram…).</p>
+        <div class="chart" id="cPlat" role="img" aria-label="Postulantes por plataforma"></div>
+      </section>
+
+      <section class="card s6">
+        <h2>Postulantes por mes y estado</h2>
+        <p class="hint">Cada columna es un mes; los colores muestran cómo quedaron.</p>
+        <div class="legend" id="lgEstado"></div>
+        <div class="chart" id="cMes" role="img" aria-label="Postulantes por mes y estado"></div>
+      </section>
+      <section class="card s6">
+        <h2>Por campaña</h2>
+        <p class="hint">Qué campaña trae más postulantes y cómo quedaron.</p>
+        <div class="legend" id="lgEstado2"></div>
+        <div class="chart" id="cOferta" role="img" aria-label="Postulantes por oferta y estado"></div>
+      </section>
+
+      <section class="card s6">
+        <h2>¿Cumplen los requisitos de las primeras preguntas?</h2>
+        <p class="hint">De los postulantes a los que se les hizo cada pregunta, cuántos cumplen.</p>
+        <div id="cReq"></div>
+      </section>
+      <section class="card s6">
+        <h2>¿Les va mejor a los que cumplen?</h2>
+        <p class="hint">Compara cómo quedaron los que cumplen todo con los que no. “% aptos” es sobre los ya tipificados.</p>
+        <div class="scroll" id="tReq"></div>
+      </section>
+
+      <section class="card s12">
+        <h2>Anuncios: ¿cuáles traen mejores postulantes?</h2>
+        <p class="hint">Toca el título de una columna para ordenar. “% aptos” es sobre los ya tipificados (aptos + no aptos + en proceso).</p>
+        <div class="scroll" id="tAnuncios"></div>
+      </section>
+
+      <section class="card s6">
+        <h2>Motivos de descarte</h2>
+        <p class="hint">Por qué quedaron como “No apto” (los más repetidos).</p>
+        <div class="chart" id="cMotivo" role="img" aria-label="Motivos de descarte"></div>
+      </section>
+      <section class="card s6">
+        <h2>Hora en que se postulan</h2>
+        <p class="hint">Hora del día (0 a 23) en que llegan los postulantes.</p>
+        <div class="chart" id="cHora" role="img" aria-label="Postulantes por hora del día"></div>
+      </section>
+
+      <section class="card s12">
+        <h2>Resumen por mes y campaña</h2>
+        <p class="hint">Es el mismo cuadro de la hoja “RESUMEN POSTULANTES”, respetando los filtros de arriba.</p>
+        <div class="scroll" id="tResumen"></div>
+      </section>
+    </div>
+    <div class="foot">Esta página solo muestra números. No contiene nombres, teléfonos, correos, DNI ni enlaces de CV.</div>
+  </div>
+</div>
+<div id="tip"></div>
+
+<script>
+const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const ESTADOS=[
+  {k:'APTO',n:'Aptos',c:'var(--c-apto)'},
+  {k:'EN PROCESO',n:'En proceso',c:'var(--c-proceso)'},
+  {k:'NO APTO',n:'No aptos',c:'var(--c-noapto)'},
+  {k:'SIN TIPIFICAR',n:'Sin tipificar',c:'var(--c-sin)'}
+];
+let DATA=null, TIPS=[], sortAnuncios={col:'total',dir:-1};
+const $=s=>document.querySelector(s);
+const nf=new Intl.NumberFormat('es-PE');
+const fmt=n=>nf.format(n);
+const pct=(a,b)=>b?((a/b)*100).toFixed(1).replace('.',',')+'%':'—';
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const mesLabel=k=>{const p=k.split('-');return MESES[+p[1]-1]+' '+p[0];};
+const diaLabel=d=>{const p=d.split('-');return (+p[2])+' '+MESES[+p[1]-1];};
+const tip=h=>{TIPS.push(h);return TIPS.length-1;};
+const state={mes:'',oferta:'',plat:''};
+
+function ticks(max){
+  const raw=Math.max(max,1)/4, p=Math.pow(10,Math.floor(Math.log10(raw))), f=raw/p;
+  const step=(f<=1?1:f<=2?2:f<=5?5:10)*p;
+  return {step, top:Math.ceil(max/step)*step||step};
+}
+function trunc(s,n){s=String(s);return s.length>n?s.slice(0,n-1)+'…':s;}
+
+/* ---------- tooltip ---------- */
+const tipEl=$('#tip');
+function showTip(e,html){
+  tipEl.innerHTML=html;tipEl.style.display='block';
+  const r=tipEl.getBoundingClientRect();
+  let x=e.clientX+14,y=e.clientY+14;
+  if(x+r.width>innerWidth-8)x=e.clientX-r.width-14;
+  if(y+r.height>innerHeight-8)y=e.clientY-r.height-14;
+  tipEl.style.left=Math.max(4,x)+'px';tipEl.style.top=Math.max(4,y)+'px';
+}
+function hideTip(){tipEl.style.display='none';}
+document.addEventListener('mousemove',e=>{
+  const t=e.target.closest&&e.target.closest('[data-t]');
+  if(t&&TIPS[+t.getAttribute('data-t')]!==undefined)showTip(e,TIPS[+t.getAttribute('data-t')]);
+  else if(!e.target.closest||!e.target.closest('[data-line]'))hideTip();
+});
+document.addEventListener('mouseleave',hideTip);
+
+/* ---------- datos ---------- */
+function filtradas(){
+  return DATA.filas.filter(r=>
+    (!state.mes||r.f.slice(0,7)===state.mes)&&
+    (!state.oferta||r.o===state.oferta)&&
+    (!state.plat||r.p===state.plat));
+}
+function contar(rows){
+  const g={total:0,APTO:0,'EN PROCESO':0,'NO APTO':0,'SIN TIPIFICAR':0,cap:0};
+  rows.forEach(r=>{g.total++;g[r.e]=(g[r.e]||0)+1;if(r.k)g.cap++;});
+  return g;
+}
+function agrupar(rows,fn){
+  const m=new Map();
+  rows.forEach(r=>{const k=fn(r);if(!m.has(k))m.set(k,[]);m.get(k).push(r);});
+  return m;
+}
+
+/* ---------- filtros ---------- */
+function llenarFiltros(){
+  const meses=[...new Set(DATA.filas.map(r=>r.f.slice(0,7)))].sort().reverse();
+  const plats=[...new Set(DATA.filas.map(r=>r.p).filter(Boolean))].sort();
+  const op=(arr,fmtFn,todas)=>'<option value="">'+todas+'</option>'+arr.map(v=>'<option value="'+esc(v)+'">'+esc(fmtFn(v))+'</option>').join('');
+  $('#fMes').innerHTML=op(meses,mesLabel,'Todos los meses');
+  $('#fPlat').innerHTML=op(plats,x=>x,'Todas');
+}
+function dibujarChips(){
+  // los números de cada campaña respetan el mes y la plataforma elegidos
+  const base=DATA.filas.filter(r=>(!state.mes||r.f.slice(0,7)===state.mes)&&(!state.plat||r.p===state.plat));
+  const cuenta=new Map();base.forEach(r=>cuenta.set(r.o,(cuenta.get(r.o)||0)+1));
+  const todas=[...new Set(DATA.filas.map(r=>r.o))].sort();
+  const chip=(v,t,n)=>'<button type="button" class="chip" data-v="'+esc(v)+'" aria-pressed="'+(state.oferta===v)+'">'+esc(t)+'<small>'+fmt(n)+'</small></button>';
+  $('#chips').innerHTML=chip('','Todas las campañas',base.length)+todas.map(o=>chip(o,o,cuenta.get(o)||0)).join('');
+  $('#chips').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{state.oferta=b.getAttribute('data-v');render();});
+}
+$('#fMes').onchange=e=>{state.mes=e.target.value;render();};
+$('#fPlat').onchange=e=>{state.plat=e.target.value;render();};
+$('#limpiar').onclick=()=>{state.mes=state.oferta=state.plat='';['fMes','fPlat'].forEach(i=>$('#'+i).value='');render();};
+
+/* ---------- KPIs ---------- */
+function kpis(rows){
+  const g=contar(rows), tip_=g.total-g['SIN TIPIFICAR'];
+  const dot=c=>'<span class="dot" style="background:'+c+'"></span>';
+  const items=[
+    {n:fmt(g.total),l:'Postulantes',d:'Todos los que llegaron'},
+    {n:fmt(g['SIN TIPIFICAR']),l:dot('var(--c-sin)')+'Sin tipificar',d:pct(g['SIN TIPIFICAR'],g.total)+' del total'},
+    {n:fmt(g['EN PROCESO']),l:dot('var(--c-proceso)')+'En proceso',d:pct(g['EN PROCESO'],g.total)+' del total'},
+    {n:fmt(g.APTO),l:dot('var(--c-apto)')+'Aptos',d:pct(g.APTO,g.total)+' del total'},
+    {n:fmt(g['NO APTO']),l:dot('var(--c-noapto)')+'No aptos',d:pct(g['NO APTO'],g.total)+' del total'},
+    {n:fmt(g.cap),l:'Ingresaron a capacitación',d:pct(g.cap,g.APTO)+' de los aptos'},
+    {n:pct(g.APTO,tip_),l:'% aptos de los tipificados',d:fmt(g.APTO)+' de '+fmt(tip_)},
+    {n:pct(tip_,g.total),l:'% ya tipificados',d:fmt(tip_)+' de '+fmt(g.total)}
+  ];
+  $('#kpis').innerHTML=items.map(i=>'<div class="kpi"><div class="n">'+i.n+'</div><div class="l">'+i.l+'</div><div class="d">'+i.d+'</div></div>').join('');
+}
+
+/* ---------- línea por día ---------- */
+function dibujarDia(el,rows){
+  const porDia=agrupar(rows,r=>r.f);
+  if(!porDia.size){el.innerHTML='<div class="empty">Sin datos para este filtro.</div>';return;}
+  const dias=[...porDia.keys()].sort();
+  const ini=new Date(dias[0]+'T00:00:00'),fin=new Date(dias[dias.length-1]+'T00:00:00');
+  const pts=[];
+  for(let d=new Date(ini);d<=fin;d.setDate(d.getDate()+1)){
+    const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    pts.push({d:k,v:porDia.has(k)?porDia.get(k).length:0});
+  }
+  const W=el.clientWidth||600,H=250,m={l:40,r:12,t:12,b:26};
+  const iw=W-m.l-m.r,ih=H-m.t-m.b;
+  const mx=Math.max(...pts.map(p=>p.v)),{step,top}=ticks(mx);
+  const x=i=>m.l+(pts.length<2?iw/2:i*iw/(pts.length-1)),y=v=>m.t+ih-v/top*ih;
+  let s='<svg viewBox="0 0 '+W+' '+H+'">';
+  for(let v=0;v<=top;v+=step){
+    s+='<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+y(v)+'" y2="'+y(v)+'" style="stroke:'+(v===0?'var(--axis)':'var(--grid)')+'" stroke-width="1"/>';
+    s+='<text x="'+(m.l-8)+'" y="'+(y(v)+4)+'" text-anchor="end">'+v+'</text>';
+  }
+  const cada=Math.max(1,Math.ceil(pts.length/7));
+  pts.forEach((p,i)=>{if(i%cada===0)s+='<text x="'+x(i)+'" y="'+(H-6)+'" text-anchor="middle">'+diaLabel(p.d)+'</text>';});
+  const linea=pts.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(p.v).toFixed(1)).join(' ');
+  s+='<path d="'+linea+' L'+x(pts.length-1)+' '+y(0)+' L'+x(0)+' '+y(0)+' Z" style="fill:var(--c-main)" opacity=".12"/>';
+  s+='<path d="'+linea+'" fill="none" style="stroke:var(--c-main)" stroke-width="2" stroke-linejoin="round"/>';
+  s+='<line id="cx" y1="'+m.t+'" y2="'+(m.t+ih)+'" style="stroke:var(--axis)" stroke-width="1" visibility="hidden"/>';
+  s+='<circle id="cp" r="4.5" style="fill:var(--c-main);stroke:var(--surface)" stroke-width="2" visibility="hidden"/>';
+  s+='<rect data-line="1" x="'+m.l+'" y="'+m.t+'" width="'+iw+'" height="'+ih+'" fill="transparent"/></svg>';
+  el.innerHTML=s;
+  const svg=el.querySelector('svg'),cx=svg.querySelector('#cx'),cp=svg.querySelector('#cp'),ov=svg.querySelector('[data-line]');
+  ov.addEventListener('mousemove',e=>{
+    const r=svg.getBoundingClientRect(),px=(e.clientX-r.left)*(W/r.width);
+    let i=pts.length<2?0:Math.round((px-m.l)/iw*(pts.length-1));i=Math.max(0,Math.min(pts.length-1,i));
+    cx.setAttribute('x1',x(i));cx.setAttribute('x2',x(i));cx.setAttribute('visibility','visible');
+    cp.setAttribute('cx',x(i));cp.setAttribute('cy',y(pts[i].v));cp.setAttribute('visibility','visible');
+    const g=contar(porDia.get(pts[i].d)||[]);
+    showTip(e,'<b>'+diaLabel(pts[i].d)+'</b><div class="r">Postulantes: <b>'+g.total+'</b></div><div class="r">Aptos: '+g.APTO+' · No aptos: '+g['NO APTO']+'</div>');
+  });
+  ov.addEventListener('mouseleave',()=>{cx.setAttribute('visibility','hidden');cp.setAttribute('visibility','hidden');hideTip();});
+}
+
+/* ---------- columnas apiladas por mes ---------- */
+function tipSeg(titulo,nombre,color,v,total){
+  return '<b>'+esc(titulo)+'</b><div class="r"><i style="background:'+color+'"></i>'+nombre+': <b>'+fmt(v)+'</b> ('+pct(v,total)+')</div>';
+}
+function dibujarMeses(el,rows){
+  const porMes=agrupar(rows,r=>r.f.slice(0,7));
+  if(!porMes.size){el.innerHTML='<div class="empty">Sin datos para este filtro.</div>';return;}
+  const meses=[...porMes.keys()].sort();
+  const gs=meses.map(k=>({k,g:contar(porMes.get(k))}));
+  const W=el.clientWidth||500,H=260,m={l:40,r:8,t:18,b:26};
+  const iw=W-m.l-m.r,ih=H-m.t-m.b;
+  const mx=Math.max(...gs.map(o=>o.g.total)),{step,top}=ticks(mx);
+  const y=v=>m.t+ih-v/top*ih,slot=iw/gs.length,bw=Math.min(64,slot*0.62);
+  let s='<svg viewBox="0 0 '+W+' '+H+'">';
+  for(let v=0;v<=top;v+=step){
+    s+='<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+y(v)+'" y2="'+y(v)+'" style="stroke:'+(v===0?'var(--axis)':'var(--grid)')+'"/>';
+    s+='<text x="'+(m.l-8)+'" y="'+(y(v)+4)+'" text-anchor="end">'+v+'</text>';
+  }
+  gs.forEach((o,i)=>{
+    const x0=m.l+i*slot+(slot-bw)/2;let acum=0;
+    ESTADOS.forEach(e=>{
+      const v=o.g[e.k]||0;if(!v)return;
+      const y1=y(acum+v),h=y(acum)-y1;
+      s+='<rect data-t="'+tip(tipSeg(mesLabel(o.k),e.n,e.c,v,o.g.total))+'" x="'+x0+'" y="'+y1+'" width="'+bw+'" height="'+Math.max(h,0)+'" rx="2" style="fill:'+e.c+';stroke:var(--surface)" stroke-width="2"/>';
+      acum+=v;
+    });
+    s+='<text class="val" x="'+(x0+bw/2)+'" y="'+(y(o.g.total)-5)+'" text-anchor="middle">'+fmt(o.g.total)+'</text>';
+    s+='<text x="'+(x0+bw/2)+'" y="'+(H-6)+'" text-anchor="middle">'+mesLabel(o.k)+'</text>';
+  });
+  el.innerHTML=s+'</svg>';
+}
+
+/* ---------- barras horizontales ---------- */
+// items: [{label,total,segs:[{n,c,v}]}]
+function dibujarBarras(el,items,opts){
+  opts=opts||{};
+  if(!items.length){el.innerHTML='<div class="empty">Sin datos para este filtro.</div>';return;}
+  const W=el.clientWidth||500,rowH=opts.rowH||30,labW=Math.min(opts.labW||190,W*0.4),m={l:labW+8,r:56,t:2,b:2};
+  const H=m.t+m.b+items.length*rowH,iw=W-m.l-m.r;
+  const mx=Math.max(...items.map(i=>i.total),1),maxChars=Math.floor(labW/6.4);
+  let s='<svg viewBox="0 0 '+W+' '+H+'">';
+  items.forEach((it,i)=>{
+    const y0=m.t+i*rowH,bh=rowH-10;let x0=m.l;
+    s+='<text class="lab" x="'+(labW)+'" y="'+(y0+rowH/2+4)+'" text-anchor="end">'+esc(trunc(it.label,maxChars))+'</text>';
+    it.segs.forEach(sg=>{
+      if(!sg.v)return;
+      const w=sg.v/mx*iw;
+      s+='<rect data-t="'+tip('<b>'+esc(it.label)+'</b><div class="r"><i style="background:'+sg.c+'"></i>'+esc(sg.n)+': <b>'+fmt(sg.v)+'</b> ('+pct(sg.v,it.total)+')</div>')+'" x="'+x0+'" y="'+(y0+5)+'" width="'+Math.max(w,1)+'" height="'+bh+'" rx="2" style="fill:'+sg.c+';stroke:var(--surface)" stroke-width="2"/>';
+      x0+=w;
+    });
+    s+='<text class="val" x="'+(x0+6)+'" y="'+(y0+rowH/2+4)+'">'+fmt(it.total)+'</text>';
+  });
+  el.innerHTML=s+'</svg>';
+}
+
+/* ---------- columnas simples por hora ---------- */
+function dibujarHoras(el,rows){
+  if(!rows.length){el.innerHTML='<div class="empty">Sin datos para este filtro.</div>';return;}
+  const v=Array(24).fill(0);rows.forEach(r=>{if(r.h>=0&&r.h<24)v[r.h]++;});
+  const W=el.clientWidth||500,H=230,m={l:40,r:8,t:12,b:26};
+  const iw=W-m.l-m.r,ih=H-m.t-m.b,{step,top}=ticks(Math.max(...v));
+  const y=n=>m.t+ih-n/top*ih,slot=iw/24,bw=slot*0.7;
+  let s='<svg viewBox="0 0 '+W+' '+H+'">';
+  for(let t=0;t<=top;t+=step){
+    s+='<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+y(t)+'" y2="'+y(t)+'" style="stroke:'+(t===0?'var(--axis)':'var(--grid)')+'"/>';
+    s+='<text x="'+(m.l-8)+'" y="'+(y(t)+4)+'" text-anchor="end">'+t+'</text>';
+  }
+  v.forEach((n,h)=>{
+    const x0=m.l+h*slot+(slot-bw)/2;
+    s+='<rect data-t="'+tip('<b>'+h+':00 a '+h+':59</b><div class="r">Postulantes: <b>'+fmt(n)+'</b> ('+pct(n,rows.length)+')</div>')+'" x="'+x0+'" y="'+y(n)+'" width="'+bw+'" height="'+Math.max(y(0)-y(n),0)+'" rx="2" style="fill:var(--c-main)"/>';
+    if(h%3===0)s+='<text x="'+(x0+bw/2)+'" y="'+(H-6)+'" text-anchor="middle">'+h+'h</text>';
+  });
+  el.innerHTML=s+'</svg>';
+}
+
+/* ---------- tablas ---------- */
+function tablaAnuncios(rows){
+  const el=$('#tAnuncios');
+  if(!rows.length){el.innerHTML='<div class="empty">Sin datos para este filtro.</div>';return;}
+  const lista=[...agrupar(rows,r=>(r.a||'(sin nombre)')+'||'+r.o).entries()].map(([k,rs])=>{
+    const g=contar(rs),t=g.total-g['SIN TIPIFICAR'],p=k.split('||');
+    return {anuncio:p[0],oferta:p[1],total:g.total,apto:g.APTO,noapto:g['NO APTO'],proc:g['EN PROCESO'],pa:t?g.APTO/t:-1,cap:g.cap};
+  });
+  const c=sortAnuncios.col,d=sortAnuncios.dir;
+  lista.sort((a,b)=>c==='anuncio'||c==='oferta'?d*String(a[c]).localeCompare(String(b[c])):d*(a[c]-b[c])||b.total-a.total);
+  const th=(k,t,l)=>'<th class="sort'+(l?' l':'')+'" data-col="'+k+'">'+t+(c===k?(d<0?' ▼':' ▲'):'')+'</th>';
+  let h='<table><thead><tr>'+th('anuncio','Anuncio',1)+th("oferta","Campaña",1)+th('total','Postulantes')+th('apto','Aptos')+th('noapto','No aptos')+th('pa','% aptos')+th('cap','Capacitación')+'</tr></thead><tbody>';
+  lista.slice(0,25).forEach(r=>{
+    h+='<tr><td class="l">'+esc(r.anuncio)+'</td><td class="l">'+esc(r.oferta)+'</td><td>'+fmt(r.total)+'</td><td>'+fmt(r.apto)+'</td><td>'+fmt(r.noapto)+'</td><td>'+(r.pa<0?'—':pct(r.apto,r.apto+r.noapto+r.proc))+(r.pa<0?'':'<span class="bar" style="width:'+Math.round(r.pa*60)+'px"></span>')+'</td><td>'+fmt(r.cap)+'</td></tr>';
+  });
+  el.innerHTML=h+'</tbody></table>'+(lista.length>25?'<div class="hint" style="margin-top:8px">Se muestran los primeros 25 de '+lista.length+'.</div>':'');
+  el.querySelectorAll('th.sort').forEach(t=>t.onclick=()=>{
+    const k=t.getAttribute('data-col');
+    sortAnuncios=sortAnuncios.col===k?{col:k,dir:-sortAnuncios.dir}:{col:k,dir:(k==='anuncio'||k==='oferta')?1:-1};
+    tablaAnuncios(rows);
+  });
+}
+function tablaResumen(rows){
+  const el=$('#tResumen');
+  if(!rows.length){el.innerHTML='<div class="empty">Sin datos para este filtro.</div>';return;}
+  const grupos=[...agrupar(rows,r=>r.f.slice(0,7)+'|'+r.o).entries()].sort((a,b)=>a[0].split('|')[0]===b[0].split('|')[0]?a[0].localeCompare(b[0]):b[0].localeCompare(a[0]));
+  let h='<table><thead><tr><th class="l">Mes</th><th class="l">Campaña</th><th>Postulantes</th><th>Sin tipificar</th><th>En proceso</th><th>Aptos</th><th>No aptos</th><th>Capacitación</th><th>% aptos / tipificados</th></tr></thead><tbody>';
+  grupos.forEach(([k,rs])=>{
+    const g=contar(rs),t=g.total-g['SIN TIPIFICAR'],p=k.split('|');
+    h+='<tr><td class="l">'+mesLabel(p[0])+'</td><td class="l">'+esc(p[1])+'</td><td>'+fmt(g.total)+'</td><td>'+fmt(g['SIN TIPIFICAR'])+'</td><td>'+fmt(g['EN PROCESO'])+'</td><td>'+fmt(g.APTO)+'</td><td>'+fmt(g['NO APTO'])+'</td><td>'+fmt(g.cap)+'</td><td>'+pct(g.APTO,t)+'</td></tr>';
+  });
+  const g=contar(rows),t=g.total-g['SIN TIPIFICAR'];
+  h+='<tr class="tot"><td class="l">TOTAL</td><td class="l"></td><td>'+fmt(g.total)+'</td><td>'+fmt(g['SIN TIPIFICAR'])+'</td><td>'+fmt(g['EN PROCESO'])+'</td><td>'+fmt(g.APTO)+'</td><td>'+fmt(g['NO APTO'])+'</td><td>'+fmt(g.cap)+'</td><td>'+pct(g.APTO,t)+'</td></tr>';
+  el.innerHTML=h+'</tbody></table>';
+}
+
+/* ---------- requisitos de las primeras preguntas ---------- */
+const REQS=[
+  {k:'i',n:'Tiene internet por cable (mínimo 50 Mbps)',nota:'No se pregunta en las campañas presenciales.'},
+  {k:'v',n:'Dejó un enlace de su CV',nota:'Cuenta solo si escribió un enlace (http…); “ok”, “lo envío por WhatsApp”, etc. no cuentan.'},
+  {k:'d',n:'Dejó un DNI válido (8 números)',nota:''}
+];
+const tiene=(r,k)=>r[k]!==undefined&&r[k]!==-1;
+function cumpleTodo(r){ // true / false / null (si la hoja no tiene ninguna de esas preguntas)
+  let aplica=false;
+  for(const q of REQS){if(tiene(r,q.k)){aplica=true;if(r[q.k]!==1)return false;}}
+  return aplica?true:null;
+}
+function requisitos(rows){
+  const el=$('#cReq'),tb=$('#tReq');
+  if(!rows.length||!rows.some(r=>tiene(r,'v')||tiene(r,'i')||tiene(r,'d'))){
+    const m='<div class="empty">Todavía no hay datos de estas preguntas. Se llenan en la próxima publicación del script.</div>';
+    el.innerHTML=m;tb.innerHTML=m;return;
+  }
+  let h='';
+  const bloque=(n,ok,tot,nota,clase)=>'<div class="req '+clase+'"><div class="t"><span>'+n+'</span><span><b>'+pct(ok,tot)+'</b> · '+fmt(ok)+' de '+fmt(tot)+'</span></div><div class="pista"><i style="width:'+(tot?ok/tot*100:0)+'%"></i></div>'+(nota?'<div class="nota">'+nota+'</div>':'')+'</div>';
+  REQS.forEach(q=>{
+    const ap=rows.filter(r=>tiene(r,q.k));
+    if(!ap.length)return;
+    h+=bloque(q.n,ap.filter(r=>r[q.k]===1).length,ap.length,q.nota,'');
+  });
+  const ev=rows.map(cumpleTodo).filter(x=>x!==null);
+  h+=bloque('Cumplen todos los requisitos que se les preguntó',ev.filter(Boolean).length,ev.length,'','todo');
+  el.innerHTML=h;
+
+  const si=rows.filter(r=>cumpleTodo(r)===true),no=rows.filter(r=>cumpleTodo(r)===false);
+  const fila=(n,rs)=>{const g=contar(rs),t=g.total-g['SIN TIPIFICAR'];
+    return '<tr><td class="l" style="white-space:nowrap">'+n+'</td><td>'+fmt(g.total)+'</td><td>'+fmt(g.APTO)+'</td><td>'+fmt(g['NO APTO'])+'</td><td>'+fmt(g['SIN TIPIFICAR'])+'</td><td><b>'+pct(g.APTO,t)+'</b></td></tr>';};
+  tb.innerHTML='<table><thead><tr><th class="l">Grupo</th><th>Postulantes</th><th>Aptos</th><th>No aptos</th><th>Sin tipif.</th><th>% aptos</th></tr></thead><tbody>'+fila('Cumplen todo',si)+fila('No cumplen alguno',no)+'</tbody></table>';
+}
+
+/* ---------- armado ---------- */
+function leyenda(id){
+  $(id).innerHTML=ESTADOS.map(e=>'<span><i style="background:'+e.c+'"></i>'+e.n+'</span>').join('');
+}
+function render(){
+  if(!DATA)return;
+  TIPS=[];
+  dibujarChips();
+  const rows=filtradas();
+  kpis(rows);
+  dibujarDia($('#cDia'),rows);
+  dibujarMeses($('#cMes'),rows);
+
+  const porOferta=[...agrupar(rows,r=>r.o).entries()].map(([k,rs])=>{
+    const g=contar(rs);
+    return {label:k,total:g.total,segs:ESTADOS.map(e=>({n:e.n,c:e.c,v:g[e.k]||0}))};
+  }).sort((a,b)=>b.total-a.total);
+  dibujarBarras($('#cOferta'),porOferta,{labW:200});
+
+  const porPlat=[...agrupar(rows,r=>r.p||'(sin dato)').entries()].map(([k,rs])=>({label:k==='fb'?'Facebook':k==='ig'?'Instagram':k,total:rs.length,segs:[{n:'Postulantes',c:'var(--c-main)',v:rs.length}]})).sort((a,b)=>b.total-a.total);
+  dibujarBarras($('#cPlat'),porPlat,{labW:110});
+
+  const mot=[...agrupar(rows.filter(r=>r.e==='NO APTO'&&r.m),r=>r.m).entries()].map(([k,rs])=>({label:k,total:rs.length,segs:[{n:'No aptos',c:'var(--c-noapto)',v:rs.length}]})).sort((a,b)=>b.total-a.total).slice(0,8);
+  dibujarBarras($('#cMotivo'),mot,{labW:200});
+
+  requisitos(rows);
+  dibujarHoras($('#cHora'),rows);
+  tablaAnuncios(rows);
+  tablaResumen(rows);
+}
+
+/* ---------- tema ---------- */
+function aplicarTema(t){
+  if(t)document.documentElement.setAttribute('data-theme',t);
+  const oscuro=document.documentElement.getAttribute('data-theme')==='dark'||(!document.documentElement.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme: dark)').matches);
+  $('#tema').textContent=oscuro?'Modo claro':'Modo oscuro';
+}
+$('#tema').onclick=()=>{
+  const oscuro=document.documentElement.getAttribute('data-theme')==='dark'||(!document.documentElement.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme: dark)').matches);
+  const nuevo=oscuro?'light':'dark';
+  try{localStorage.setItem('tema',nuevo);}catch(e){}
+  aplicarTema(nuevo);
+};
+try{const t=localStorage.getItem('tema');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}
+aplicarTema();
+
+/* ---------- carga ---------- */
+leyenda('#lgEstado');leyenda('#lgEstado2');
+fetch('data.json?'+Date.now()).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(d=>{
+  DATA=d;
+  if(!d.filas||!d.filas.length){
+    $('#actualizado').textContent='Todavía no hay datos. Aparecerán cuando el script de Google Sheets publique por primera vez.';
+    $('#contenido').style.display='none';return;
+  }
+  const f=new Date(d.actualizado);
+  $('#actualizado').textContent='Actualizado: '+(isNaN(f)?d.actualizado:f.toLocaleString('es-PE',{dateStyle:'long',timeStyle:'short'}))+' · '+fmt(d.filas.length)+' postulantes';
+  llenarFiltros();render();
+}).catch(e=>{$('#actualizado').textContent='No pude cargar los datos ('+e.message+').';$('#contenido').style.display='none';});
+let rt;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(render,150);});
+</script>
+</body>
+</html>
