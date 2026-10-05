@@ -99,11 +99,18 @@ tr.tot td{font-weight:650;border-top:1px solid var(--axis)}
 #tip b{font-weight:650}
 #tip .r{display:flex;align-items:center;gap:6px;margin-top:2px}
 #tip i{display:inline-block;width:9px;height:9px;border-radius:3px}
+.mini{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.mini div{background:var(--page);border-radius:10px;padding:10px 12px}
+.mini b{display:block;font-size:22px;font-weight:700;line-height:1.15}
+.mini span{font-size:12px;color:var(--ink2)}
+.cab{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:8px}
+.cab select{background:var(--page);color:var(--ink);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font:inherit;font-size:13px}
 .foot{color:var(--muted);font-size:12px;margin-top:20px}
 @media (max-width:900px){
   .kpis{grid-template-columns:repeat(2,1fr)}
   .s8,.s6,.s4{grid-column:span 12}
   .kpi .n{font-size:26px}
+  .mini{grid-template-columns:repeat(2,1fr)}
   .bar{position:static}
   .bar select#fOferta{min-width:0;width:100%}
   .bar label{flex:1 1 140px}
@@ -151,6 +158,25 @@ tr.tot td{font-weight:650;border-top:1px solid var(--axis)}
         <h2>Embudo</h2>
         <p class="hint">De todos los que llegaron, cuántos avanzan en cada paso.</p>
         <div id="cEmbudo"></div>
+      </section>
+
+      <section class="card s8">
+        <div class="cab">
+          <div><h2>SLA: ¿qué tan rápido se atiende a los postulantes?</h2>
+          <p class="hint" id="hSla">Tiempo desde que el postulante llega hasta que alguien lo atiende.</p></div>
+          <select id="fSla" aria-label="Medir hasta"><option value="tc">Hasta el primer contacto</option><option value="tg">Hasta la primera tipificación</option></select>
+        </div>
+        <div id="cSla"></div>
+      </section>
+      <section class="card s4">
+        <h2>Hora en que se atiende</h2>
+        <p class="hint">Hora del día (0 a 23) en que se hace el primer contacto o la primera tipificación (hora de Perú).</p>
+        <div class="chart" id="cHoraGest" role="img" aria-label="Hora en que se atiende a los postulantes"></div>
+      </section>
+      <section class="card s12">
+        <h2>SLA por campaña</h2>
+        <p class="hint">Solo cuentan los postulantes con hora real registrada. El tiempo corre las 24 horas (incluye noches y fines de semana).</p>
+        <div class="scroll" id="tSla"></div>
       </section>
 
       <section class="card s6">
@@ -224,7 +250,7 @@ const diaLabel=d=>{const p=d.split('-');return (+p[2])+' '+MESES[+p[1]-1];};
 const diaLargo=d=>{const p=d.split('-');return (+p[2])+' '+MESES[+p[1]-1]+' '+p[0];};
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const tip=h=>{TIPS.push(h);return TIPS.length-1;};
-const state={oferta:'',modo:'llegada',desde:'',hasta:''};
+const state={oferta:'',modo:'llegada',desde:'',hasta:'',sla:'tc'};
 // fecha que se usa para cada postulante según "Ver por"
 const fd=r=>state.modo==='gestion'?(r.g||r.s||''):r.f;
 
@@ -308,6 +334,7 @@ $('#fOferta').onchange=e=>{state.oferta=e.target.value;render();};
 $('#fModo').onchange=e=>{state.modo=e.target.value;render();};
 $('#fDesde').onchange=e=>{state.desde=e.target.value;render();};
 $('#fHasta').onchange=e=>{state.hasta=e.target.value;render();};
+$('#fSla').onchange=e=>{state.sla=e.target.value;render();};
 document.querySelectorAll('.pre').forEach(b=>b.onclick=()=>aplicarPreset(b.getAttribute('data-p')));
 
 function avisoGestion(){
@@ -451,9 +478,12 @@ function dibujarBarras(el,items,opts){
 }
 
 /* ---------- columnas simples por hora ---------- */
-function dibujarHoras(el,rows){
-  if(!rows.length){el.innerHTML='<div class="empty">Sin datos para este filtro.</div>';return;}
-  const v=Array(24).fill(0);rows.forEach(r=>{if(r.h>=0&&r.h<24)v[r.h]++;});
+// fn(r) devuelve la hora (0 a 23) o null; etiqueta = qué se cuenta en el globo
+function dibujarHoras(el,rows,fn,etiqueta){
+  fn=fn||(r=>r.h);etiqueta=etiqueta||'Postulantes';
+  const v=Array(24).fill(0);let total=0;
+  rows.forEach(r=>{const h=fn(r);if(h!==null&&h>=0&&h<24){v[h]++;total++;}});
+  if(!total){el.innerHTML='<div class="empty">Sin datos para este filtro.</div>';return;}
   const W=el.clientWidth||500,H=230,m={l:40,r:8,t:12,b:26};
   const iw=W-m.l-m.r,ih=H-m.t-m.b,{step,top}=ticks(Math.max(...v));
   const y=n=>m.t+ih-n/top*ih,slot=iw/24,bw=slot*0.7;
@@ -464,10 +494,52 @@ function dibujarHoras(el,rows){
   }
   v.forEach((n,h)=>{
     const x0=m.l+h*slot+(slot-bw)/2;
-    s+='<rect data-t="'+tip('<b>'+h+':00 a '+h+':59</b><div class="r">Postulantes: <b>'+fmt(n)+'</b> ('+pct(n,rows.length)+')</div>')+'" x="'+x0+'" y="'+y(n)+'" width="'+bw+'" height="'+Math.max(y(0)-y(n),0)+'" rx="2" style="fill:var(--c-main)"/>';
+    s+='<rect data-t="'+tip('<b>'+h+':00 a '+h+':59</b><div class="r">'+etiqueta+': <b>'+fmt(n)+'</b> ('+pct(n,total)+')</div>')+'" x="'+x0+'" y="'+y(n)+'" width="'+bw+'" height="'+Math.max(y(0)-y(n),0)+'" rx="2" style="fill:var(--c-main)"/>';
     if(h%3===0)s+='<text x="'+(x0+bw/2)+'" y="'+(H-6)+'" text-anchor="middle">'+h+'h</text>';
   });
   el.innerHTML=s+'</svg>';
+}
+
+/* ---------- SLA: tiempo hasta atender al postulante ---------- */
+const SLA_TRAMOS=[{n:'Hasta 15 min',max:15},{n:'15 a 60 min',max:60},{n:'1 a 4 horas',max:240},{n:'4 a 24 horas',max:1440},{n:'Más de 24 horas',max:Infinity}];
+const horaPeru=new Intl.DateTimeFormat('en-GB',{timeZone:'America/Lima',hour:'2-digit',hour12:false});
+const horaDe=(seg)=>{const h=parseInt(horaPeru.format(new Date(seg*1000)),10);return isNaN(h)?null:h%24;};
+function durTxt(min){
+  if(min===null||min===undefined||isNaN(min))return '—';
+  if(min<1)return 'menos de 1 min';
+  if(min<60)return Math.round(min)+' min';
+  if(min<1440){const h=Math.floor(min/60),m=Math.round(min%60);return h+' h'+(m?' '+m+' min':'');}
+  const d=Math.floor(min/1440),h=Math.round((min%1440)/60);return d+' d'+(h?' '+h+' h':'');
+}
+function mediana(a){if(!a.length)return null;const s=[...a].sort((x,y)=>x-y),m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;}
+function slaMin(r){const t=r[state.sla];if(!t||!r.tl)return null;const m=(t-r.tl)/60;return m>=0?m:null;}
+function sla(rows){
+  const el=$('#cSla'),tb=$('#tSla'),hh=$('#cHoraGest');
+  const quien=state.sla==='tc'?'primer contacto':'primera tipificación';
+  $('#hSla').textContent='Tiempo desde que el postulante llega hasta su '+quien+'.';
+  const med=rows.map(r=>({r,m:slaMin(r)})).filter(x=>x.m!==null);
+  if(!med.length){
+    const m='<div class="empty">Todavía no hay horas reales para este filtro. Se van llenando a medida que el equipo atiende postulantes desde que se activó el registro de gestión.</div>';
+    el.innerHTML=m;tb.innerHTML=m;hh.innerHTML=m;return;
+  }
+  const mins=med.map(x=>x.m),prom=mins.reduce((a,b)=>a+b,0)/mins.length;
+  const dentro=lim=>mins.filter(x=>x<=lim).length;
+  let h='<div class="mini">'+
+    '<div><b>'+durTxt(mediana(mins))+'</b><span>Mediana (la mitad se atiende antes)</span></div>'+
+    '<div><b>'+durTxt(prom)+'</b><span>Promedio</span></div>'+
+    '<div><b>'+pct(dentro(60),mins.length)+'</b><span>Atendidos en 1 hora o menos</span></div>'+
+    '<div><b>'+pct(dentro(1440),mins.length)+'</b><span>Atendidos en 24 horas o menos</span></div></div>';
+  let previo=0;
+  SLA_TRAMOS.forEach((t,i)=>{
+    const n=mins.filter(x=>x>previo&&x<=t.max||(i===0&&x<=t.max)).length;previo=t.max;
+    h+='<div class="req"><div class="t"><span>'+t.n+'</span><span><b>'+pct(n,mins.length)+'</b> · '+fmt(n)+' de '+fmt(mins.length)+'</span></div><div class="pista"><i style="width:'+(n/mins.length*100)+'%;background:'+(i<2?'var(--c-apto)':i===2?'var(--c-proceso)':'var(--c-noapto)')+'"></i></div></div>';
+  });
+  h+='<div class="nota" style="font-size:12px;color:var(--muted)">'+fmt(mins.length)+' de '+fmt(rows.length)+' postulantes tienen hora real registrada (solo desde que se activó el registro).</div>';
+  el.innerHTML=h;
+  dibujarHoras(hh,rows.filter(r=>r[state.sla]),r=>horaDe(r[state.sla]),'Atendidos');
+  const por=[...agrupar(med,x=>x.r.o).entries()].map(([k,xs])=>{const ms=xs.map(x=>x.m);return {k,n:ms.length,med:mediana(ms),p:ms.filter(x=>x<=60).length/ms.length,d:ms.filter(x=>x<=1440).length/ms.length};}).sort((a,b)=>b.n-a.n);
+  tb.innerHTML='<table><thead><tr><th class="l">Campaña</th><th>Con hora real</th><th>Mediana</th><th>≤ 1 hora</th><th>≤ 24 horas</th></tr></thead><tbody>'+
+    por.map(x=>'<tr><td class="l">'+esc(x.k)+'</td><td>'+fmt(x.n)+'</td><td>'+durTxt(x.med)+'</td><td>'+pct(Math.round(x.p*x.n),x.n)+'</td><td>'+pct(Math.round(x.d*x.n),x.n)+'</td></tr>').join('')+'</tbody></table>';
 }
 
 /* ---------- tablas ---------- */
@@ -572,6 +644,7 @@ function render(){
   dibujarBarras($('#cMotivo'),mot,{labW:200});
 
   dibujarHoras($('#cHora'),rows);
+  sla(rows);
   requisitos(rows);
   tablaAnuncios(rows);
   tablaResumen(rows);
