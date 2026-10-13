@@ -565,6 +565,19 @@ function kpis(rows){
     {c:'k-main',n:pct(g.APTO,tip_),l:'% aptos de los tipificados',d:fmt(g.APTO)+' de '+fmt(tip_)},
     {c:'k-main',n:pct(tip_,g.total),l:'% ya tipificados',d:fmt(tip_)+' de '+fmt(g.total)}
   ];
+  // inversión, CPL y costo por apto: sobre los meses completos que toca el rango elegido
+  {
+    const meses=[...new Set(rows.map(r=>r.f.slice(0,7)))].sort();
+    let inv=0,pI=0,aI=0,hay=false,parcial=false;
+    meses.forEach(m=>{const x=cplDatos(m,'c').general;if(x.inv!==null){hay=true;inv+=x.inv;pI+=x.postI;aI+=x.aptI!==undefined?x.aptI:0;if(x.conInv<x.total)parcial=true;}});
+    const nota=meses.length>1?'meses completos, '+mesLabel(meses[0])+' a '+mesLabel(meses[meses.length-1]):meses.length?'mes completo, '+mesLabel(meses[0]):'';
+    const sinInv='Aún no hay inversión registrada';
+    items.push(
+      {c:'k-main',n:hay?sol(inv):'—',l:'Inversión',d:hay?nota+(parcial?' · solo anuncios con inversión':''):sinInv},
+      {c:'k-main',n:hay&&pI?sol(inv/pI):'—',l:'CPL',d:'inversión / postulante'},
+      {c:'k-main',n:hay&&aI?sol(inv/aI):'—',l:'Costo por apto',d:'inversión / apto'}
+    );
+  }
   $('#kpis').innerHTML=items.map(i=>'<div class="kpi '+i.c+'"><div class="n">'+i.n+'</div><div class="l">'+i.l+'</div><div class="d">'+i.d+'</div></div>').join('');
   // tira de distribución
   const seg=ESTADOS.map(e=>({n:e.n,c:e.c,v:g[e.k]||0}));
@@ -908,7 +921,7 @@ function cplDatos(mes,nivel){
   const con=[...ads.values()].filter(x=>x.s>0);
   const sInv=con.reduce((a,x)=>a+x.s,0),sPost=con.reduce((a,x)=>a+x.post,0),sApt=con.reduce((a,x)=>a+x.aptos,0);
   const total=[...ads.values()].reduce((a,x)=>a+x.post,0);
-  return {filas,nivel,general:{inv:con.length?sInv:null,post:total,postI:sPost,aptos:[...ads.values()].reduce((a,x)=>a+x.aptos,0),cpl:con.length&&sPost?sInv/sPost:null,cpa:con.length&&sApt?sInv/sApt:null,conInv:con.length,total:ads.size}};
+  return {filas,nivel,general:{inv:con.length?sInv:null,post:total,postI:sPost,aptI:sApt,aptos:[...ads.values()].reduce((a,x)=>a+x.aptos,0),cpl:con.length&&sPost?sInv/sPost:null,cpa:con.length&&sApt?sInv/sApt:null,conInv:con.length,total:ads.size}};
 }
 function rangoSemana(w,mes){
   const d=w.filter(x=>x.dentro),a=d[0],b=d[d.length-1],m=MESES[+mes.split('-')[1]-1];
