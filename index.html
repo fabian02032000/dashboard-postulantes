@@ -206,7 +206,7 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .tab:hover{color:var(--ink)}
 .tab.on{color:var(--ink);border-bottom-color:var(--tab)}
 [data-tab="mes"] #kpis,[data-tab="mes"] #dist,[data-tab="mes"] .grid>section:not(.pm),[data-tab="mes"] #secResumen{display:none}
-[data-tab="general"] .grid>section.pm,[data-tab="general"] #secMes{display:none}
+[data-tab="general"] .grid>section.pm:not(.pg),[data-tab="general"] #secMes,[data-tab="general"] #kMes{display:none}
 .sec{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;font-size:19px;font-weight:800;letter-spacing:-.02em;margin:24px 0 12px}
 .grid>.sec{grid-column:1/-1;margin:6px 0 0}
 .sec:before{content:"";width:22px;height:2px;background:#7B00D3}
@@ -309,7 +309,7 @@ th{color:var(--brand-t)}
 
 
       <h2 class="sec" id="secMes">Mes y anuncios<small>mapa de calor, ingreso por semana e inversión</small></h2>
-      <section class="card s12 pm">
+      <section class="card s12 pm pg">
         <div class="cab">
           <div><div class="etq">Mes en detalle</div><h2>Mapa de calor del mes</h2>
           <p class="hint" id="hMes">Cuántos postulantes llegan cada día, semana por semana. Usa el mes elegido (no el rango de arriba) y respeta la campaña.</p></div>
@@ -317,12 +317,12 @@ th{color:var(--brand-t)}
         </div>
         <div class="mini" id="kMes"></div>
       </section>
-      <section class="card s8 pm">
+      <section class="card s8 pm pg">
         <h2>Postulantes por día y semana</h2>
         <p class="hint">Más oscuro = más postulantes ese día. Pasa el mouse sobre un día para ver el detalle.</p>
         <div id="cMapa"></div>
       </section>
-      <section class="card s4 pm">
+      <section class="card s4 pm pg">
         <h2>Ingreso por semana</h2>
         <p class="hint">Cuántos postulantes entran cada semana y cómo cambia el ritmo por día.</p>
         <div id="cSemana"></div>
