@@ -842,7 +842,7 @@ function tablaResumen(rows){
   const grupos=[...agrupar(conF,r=>fd(r).slice(0,7)+'|'+r.o).entries()].sort((a,b)=>a[0].split('|')[0]===b[0].split('|')[0]?a[0].localeCompare(b[0]):b[0].localeCompare(a[0]));
   let h='<table><thead><tr><th class="l">Mes</th><th class="l">Campaña</th><th>Postulantes</th><th>Sin tipificar</th><th>No contacto</th><th>En proceso</th><th>Aptos</th><th>No aptos</th><th>Capacitación</th><th>% aptos / tipificados</th></tr></thead><tbody>';
   grupos.forEach(([k,rs])=>{
-    const g=contar(rs),t=g.total-g['SIN TIPIFICAR']-g['NO CONTACTO'],p=k.split('|');
+    const g=contar(rs),t=g.total-g['SIN TIPIFICAR']-g['NO CONTACTO'],p=[k.slice(0,7),k.slice(8)];
     h+='<tr><td class="l">'+mesLabel(p[0])+'</td><td class="l">'+esc(p[1])+'</td><td>'+fmt(g.total)+'</td><td>'+fmt(g['SIN TIPIFICAR'])+'</td><td>'+fmt(g['NO CONTACTO'])+'</td><td>'+fmt(g['EN PROCESO'])+'</td><td>'+fmt(g.APTO)+'</td><td>'+fmt(g['NO APTO'])+'</td><td>'+fmt(g.cap)+'</td><td>'+pct(g.APTO,t)+'</td></tr>';
   });
   const g=contar(conF),t=g.total-g['SIN TIPIFICAR']-g['NO CONTACTO'];
