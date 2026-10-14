@@ -22,7 +22,7 @@
   --page:#000000; --surface:#181818; --field:#242424; --ink:#ffffff; --ink2:#cfcfd6; --muted:#8a8a93;
   --grid:#2a2a2f; --axis:#3a3a42; --border:rgba(255,255,255,.10);
   --brand-t:#B26BFF; --bad:#E5484D; --tab:#C6FF00; --fin:#C6FF00; --logo-c:#ffffff;
-  --c-proceso:#B26BFF; --c-noapto:#8b8b98; --c-apto:#C6FF00; --c-sin:#33333a; --c-main:#B26BFF;
+  --c-proceso:#B26BFF; --c-noapto:#8b8b98; --c-apto:#C6FF00; --c-sin:#33333a; --c-main:#B26BFF; --c-nocont:#F2A23C;
   --h-zero:#222226; --h-lo:#2a1245; --h-hi:#B26BFF; --h-t-lo:#ffffff; --h-t-hi:#000000;
   --shadow:none;
 }
@@ -31,7 +31,7 @@
   --page:#f7f6fa; --surface:#ffffff; --field:#f3f2f7; --ink:#000000; --ink2:#52514e; --muted:#898781;
   --grid:#ece9f2; --axis:#c9c4d4; --border:#e4e1ec;
   --brand-t:#7B00D3; --tab:#7B00D3; --fin:#7B00D3; --logo-c:#7B00D3;
-  --c-proceso:#B26BFF; --c-noapto:#181818; --c-apto:#7B00D3; --c-sin:#d4d2da; --c-main:#7B00D3;
+  --c-proceso:#B26BFF; --c-noapto:#181818; --c-apto:#7B00D3; --c-sin:#d4d2da; --c-main:#7B00D3; --c-nocont:#D9822B;
   --h-zero:#f3f2f6; --h-lo:#f1e6fb; --h-hi:#7B00D3; --h-t-lo:#1b1b1b; --h-t-hi:#ffffff;
 }
 *{box-sizing:border-box}
@@ -76,7 +76,7 @@ body{margin:0;background:var(--page);color:var(--ink);font:15px/1.45 Inter,syste
 .kpi .n{font-size:30px;font-weight:800;line-height:1.1;letter-spacing:-.03em}
 .kpi .l{font-size:13px;color:var(--ink2);margin-top:4px}
 .kpi .d{font-size:12px;color:var(--muted);margin-top:2px}
-.kpi.k-sin{border-top-color:var(--c-sin)}.kpi.k-proc{border-top-color:var(--c-proceso)}
+.kpi.k-nc{border-top-color:var(--c-nocont)}.kpi.k-sin{border-top-color:var(--c-sin)}.kpi.k-proc{border-top-color:var(--c-proceso)}
 .kpi.k-apto{border-top-color:var(--c-apto)}.kpi.k-no{border-top-color:var(--c-noapto)}
 .kpi.k-main{border-top-color:var(--brand-t)}
 .dist{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:14px 16px;margin-bottom:16px}
@@ -306,6 +306,11 @@ th{color:var(--brand-t)}
         <p class="hint">De todos los que llegaron, cuántos avanzan en cada paso.</p>
         <div id="cEmbudo"></div>
       </section>
+      <section class="card s12" id="secContacto">
+        <h2>Contacto y no contacto</h2>
+        <p class="hint">Solo las 4 campañas activas (ATC y Ventas, presencial y remoto), de este mes en adelante. Cuenta el primer resultado que marca el equipo: Contacto o No contacto.</p>
+        <div id="cContacto"></div>
+      </section>
 
 
       <h2 class="sec" id="secMes">Mes y anuncios<small>mapa de calor, ingreso por semana e inversión</small></h2>
@@ -437,6 +442,7 @@ const ESTADOS=[
   {k:'APTO',n:'Aptos',c:'var(--c-apto)'},
   {k:'EN PROCESO',n:'En proceso',c:'var(--c-proceso)'},
   {k:'NO APTO',n:'No aptos',c:'var(--c-noapto)'},
+  {k:'NO CONTACTO',n:'No contactados',c:'var(--c-nocont)'},
   {k:'SIN TIPIFICAR',n:'Sin tipificar',c:'var(--c-sin)'}
 ];
 let DATA=null, TIPS=[], sortAnuncios={col:'total',dir:-1};
@@ -495,7 +501,7 @@ function filtradas(){
   });
 }
 function contar(rows){
-  const g={total:0,APTO:0,'EN PROCESO':0,'NO APTO':0,'SIN TIPIFICAR':0,cap:0};
+  const g={total:0,APTO:0,'EN PROCESO':0,'NO APTO':0,'NO CONTACTO':0,'SIN TIPIFICAR':0,cap:0};
   rows.forEach(r=>{g.total++;g[r.e]=(g[r.e]||0)+1;if(r.k)g.cap++;});
   return g;
 }
@@ -549,21 +555,22 @@ function avisoGestion(){
   const base=DATA.filas.filter(r=>!state.oferta||r.o===state.oferta);
   const conFecha=base.filter(r=>r.g||r.s).length,reales=base.filter(r=>r.g).length;
   el.className='aviso on';
-  el.textContent='Fecha de gestión: '+fmt(reales)+' de '+fmt(conFecha)+' son fechas reales, registradas automáticamente en el momento en que se tipifica. El resto toma la columna “Fecha Gestion” que escribe el equipo en el sheet (aún no hay registro real de esos). Los postulantes sin ninguna fecha de gestión no aparecen cuando eliges un rango.';
+  el.textContent='Fecha de gestión: '+fmt(reales)+' de '+fmt(conFecha)+' son fechas y horas reales, registradas automáticamente en el momento en que el equipo marca Contacto o No contacto (los intentos siguientes no cambian la hora). El resto toma la columna “Fecha Gestion” que escribe el equipo en el sheet (aún no hay registro real de esos). Los postulantes sin ninguna fecha de gestión no aparecen cuando eliges un rango.';
 }
 
 /* ---------- KPIs ---------- */
 function kpis(rows){
-  const g=contar(rows), tip_=g.total-g['SIN TIPIFICAR'];
+  const g=contar(rows), tip_=g.total-g['SIN TIPIFICAR']-g['NO CONTACTO']; // tipificados con resultado (sin contar los que no contestaron)
   const items=[
     {c:'k-main',n:fmt(g.total),l:'Postulantes',d:'Total en el rango elegido'},
     {c:'k-apto',n:fmt(g.APTO),l:'Aptos',d:pct(g.APTO,g.total)+' del total'},
     {c:'k-no',n:fmt(g['NO APTO']),l:'No aptos',d:pct(g['NO APTO'],g.total)+' del total'},
     {c:'k-proc',n:fmt(g['EN PROCESO']),l:'En proceso',d:pct(g['EN PROCESO'],g.total)+' del total'},
+    {c:'k-nc',n:fmt(g['NO CONTACTO']),l:'No contactados',d:pct(g['NO CONTACTO'],g.total)+' del total'},
     {c:'k-sin',n:fmt(g['SIN TIPIFICAR']),l:'Sin tipificar',d:pct(g['SIN TIPIFICAR'],g.total)+' del total'},
     {c:'k-main',n:fmt(g.cap),l:'Ingresaron a capacitación',d:pct(g.cap,g.APTO)+' de los aptos'},
     {c:'k-main',n:pct(g.APTO,tip_),l:'% aptos de los tipificados',d:fmt(g.APTO)+' de '+fmt(tip_)},
-    {c:'k-main',n:pct(tip_,g.total),l:'% ya tipificados',d:fmt(tip_)+' de '+fmt(g.total)}
+    {c:'k-main',n:pct(g.total-g['SIN TIPIFICAR'],g.total),l:'% ya tipificados',d:fmt(g.total-g['SIN TIPIFICAR'])+' de '+fmt(g.total)}
   ];
   // inversión, CPL y costo por apto: sobre los meses completos que toca el rango elegido
   {
@@ -584,6 +591,24 @@ function kpis(rows){
   $('#dist').innerHTML='<h2>Cómo quedaron los postulantes</h2><div class="tira">'+
     seg.filter(s=>s.v).map(s=>'<i data-t="'+tip('<b>'+s.n+'</b><div class="r">'+fmt(s.v)+' ('+pct(s.v,g.total)+')</div>')+'" style="background:'+s.c+';width:'+(s.v/Math.max(g.total,1)*100)+'%"></i>').join('')+
     '</div><div class="legend">'+seg.map(s=>'<span><i style="background:'+s.c+'"></i>'+s.n+': <b>'+fmt(s.v)+'</b> ('+pct(s.v,g.total)+')</span>').join('')+'</div>';
+}
+
+/* ---------- contacto y no contacto (campañas activas) ---------- */
+function contactoCard(rows){
+  const el=$('#cContacto'),rs=rows.filter(r=>r.n);
+  if(!rs.length){el.innerHTML='<div class="empty">Todavía no hay postulantes de las campañas activas en este rango.</div>';return;}
+  const cnt=a=>({t:a.length,C:a.filter(r=>r.n==='C').length,N:a.filter(r=>r.n==='N').length,P:a.filter(r=>r.n==='P').length});
+  const g=cnt(rs),ges=g.C+g.N;
+  let h='<div class="mini">'+
+    '<div><b>'+fmt(g.C)+'</b><span>Contactados · '+pct(g.C,g.t)+' del total</span></div>'+
+    '<div><b>'+fmt(g.N)+'</b><span>No contactados · '+pct(g.N,g.t)+' del total</span></div>'+
+    '<div><b>'+fmt(g.P)+'</b><span>Por contactar (sin gestionar) · '+pct(g.P,g.t)+'</span></div>'+
+    '<div><b>'+pct(g.C,ges)+'</b><span>De los gestionados, contestaron ('+fmt(g.C)+' de '+fmt(ges)+')</span></div></div>';
+  const lista=[...agrupar(rs,r=>r.o).entries()].map(([k,a])=>Object.assign({o:k},cnt(a))).sort((x,y)=>y.t-x.t);
+  h+='<div class="scroll"><table><thead><tr><th class="l">Campaña</th><th>Postulantes</th><th>Contactados</th><th>No contactados</th><th>Por contactar</th><th>% de contacto</th></tr></thead><tbody>'+
+    lista.map(x=>'<tr><td class="l">'+esc(x.o)+'</td><td>'+fmt(x.t)+'</td><td>'+fmt(x.C)+'</td><td>'+fmt(x.N)+'</td><td>'+fmt(x.P)+'</td><td><b>'+pct(x.C,x.C+x.N)+'</b></td></tr>').join('')+
+    '<tr class="tot"><td class="l">TOTAL</td><td>'+fmt(g.t)+'</td><td>'+fmt(g.C)+'</td><td>'+fmt(g.N)+'</td><td>'+fmt(g.P)+'</td><td>'+pct(g.C,ges)+'</td></tr></tbody></table></div>';
+  el.innerHTML=h;
 }
 
 /* ---------- embudo ---------- */
@@ -790,7 +815,7 @@ function tablaAnuncios(rows){
   const el=$('#tAnuncios');
   if(!rows.length){el.innerHTML='<div class="empty">Sin datos para este filtro.</div>';return;}
   const lista=[...agrupar(rows,r=>(r.a||'(sin nombre)')+'||'+r.o).entries()].map(([k,rs])=>{
-    const g=contar(rs),t=g.total-g['SIN TIPIFICAR'],p=k.split('||');
+    const g=contar(rs),t=g.total-g['SIN TIPIFICAR']-g['NO CONTACTO'],p=k.split('||');
     return {anuncio:p[0],oferta:p[1],total:g.total,apto:g.APTO,noapto:g['NO APTO'],proc:g['EN PROCESO'],pa:t?g.APTO/t:-1,cap:g.cap};
   });
   const c=sortAnuncios.col,d=sortAnuncios.dir;
@@ -812,13 +837,13 @@ function tablaResumen(rows){
   const conF=rows.filter(r=>fd(r));
   if(!conF.length){el.innerHTML='<div class="empty">Sin datos para este filtro.</div>';return;}
   const grupos=[...agrupar(conF,r=>fd(r).slice(0,7)+'|'+r.o).entries()].sort((a,b)=>a[0].split('|')[0]===b[0].split('|')[0]?a[0].localeCompare(b[0]):b[0].localeCompare(a[0]));
-  let h='<table><thead><tr><th class="l">Mes</th><th class="l">Campaña</th><th>Postulantes</th><th>Sin tipificar</th><th>En proceso</th><th>Aptos</th><th>No aptos</th><th>Capacitación</th><th>% aptos / tipificados</th></tr></thead><tbody>';
+  let h='<table><thead><tr><th class="l">Mes</th><th class="l">Campaña</th><th>Postulantes</th><th>Sin tipificar</th><th>No contactados</th><th>En proceso</th><th>Aptos</th><th>No aptos</th><th>Capacitación</th><th>% aptos / tipificados</th></tr></thead><tbody>';
   grupos.forEach(([k,rs])=>{
-    const g=contar(rs),t=g.total-g['SIN TIPIFICAR'],p=k.split('|');
-    h+='<tr><td class="l">'+mesLabel(p[0])+'</td><td class="l">'+esc(p[1])+'</td><td>'+fmt(g.total)+'</td><td>'+fmt(g['SIN TIPIFICAR'])+'</td><td>'+fmt(g['EN PROCESO'])+'</td><td>'+fmt(g.APTO)+'</td><td>'+fmt(g['NO APTO'])+'</td><td>'+fmt(g.cap)+'</td><td>'+pct(g.APTO,t)+'</td></tr>';
+    const g=contar(rs),t=g.total-g['SIN TIPIFICAR']-g['NO CONTACTO'],p=k.split('|');
+    h+='<tr><td class="l">'+mesLabel(p[0])+'</td><td class="l">'+esc(p[1])+'</td><td>'+fmt(g.total)+'</td><td>'+fmt(g['SIN TIPIFICAR'])+'</td><td>'+fmt(g['NO CONTACTO'])+'</td><td>'+fmt(g['EN PROCESO'])+'</td><td>'+fmt(g.APTO)+'</td><td>'+fmt(g['NO APTO'])+'</td><td>'+fmt(g.cap)+'</td><td>'+pct(g.APTO,t)+'</td></tr>';
   });
-  const g=contar(conF),t=g.total-g['SIN TIPIFICAR'];
-  h+='<tr class="tot"><td class="l">TOTAL</td><td class="l"></td><td>'+fmt(g.total)+'</td><td>'+fmt(g['SIN TIPIFICAR'])+'</td><td>'+fmt(g['EN PROCESO'])+'</td><td>'+fmt(g.APTO)+'</td><td>'+fmt(g['NO APTO'])+'</td><td>'+fmt(g.cap)+'</td><td>'+pct(g.APTO,t)+'</td></tr>';
+  const g=contar(conF),t=g.total-g['SIN TIPIFICAR']-g['NO CONTACTO'];
+  h+='<tr class="tot"><td class="l">TOTAL</td><td class="l"></td><td>'+fmt(g.total)+'</td><td>'+fmt(g['SIN TIPIFICAR'])+'</td><td>'+fmt(g['NO CONTACTO'])+'</td><td>'+fmt(g['EN PROCESO'])+'</td><td>'+fmt(g.APTO)+'</td><td>'+fmt(g['NO APTO'])+'</td><td>'+fmt(g.cap)+'</td><td>'+pct(g.APTO,t)+'</td></tr>';
   el.innerHTML=h+'</tbody></table>';
 }
 
@@ -852,7 +877,7 @@ function requisitos(rows){
   el.innerHTML=h;
 
   const si=rows.filter(r=>cumpleTodo(r)===true),no=rows.filter(r=>cumpleTodo(r)===false);
-  const fila=(n,rs)=>{const g=contar(rs),t=g.total-g['SIN TIPIFICAR'];
+  const fila=(n,rs)=>{const g=contar(rs),t=g.total-g['SIN TIPIFICAR']-g['NO CONTACTO'];
     return '<tr><td class="l" style="white-space:nowrap">'+n+'</td><td>'+fmt(g.total)+'</td><td>'+fmt(g.APTO)+'</td><td>'+fmt(g['NO APTO'])+'</td><td>'+fmt(g['SIN TIPIFICAR'])+'</td><td><b>'+pct(g.APTO,t)+'</b></td></tr>';};
   tb.innerHTML='<table><thead><tr><th class="l">Grupo</th><th>Postulantes</th><th>Aptos</th><th>No aptos</th><th>Sin tipif.</th><th>% aptos</th></tr></thead><tbody>'+fila('Cumplen todo',si)+fila('No cumplen alguno',no)+'</tbody></table>';
 }
@@ -1029,6 +1054,7 @@ function render(){
   $('#tDia').textContent=state.modo==='gestion'?'Postulantes gestionados por día':'Postulantes por día';
   kpis(rows);
   embudo(rows);
+  contactoCard(rows);
   dibujarDia($('#cDia'),rows);
   dibujarMeses($('#cMes'),rows);
   mesDetalle();
