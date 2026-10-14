@@ -442,7 +442,7 @@ const ESTADOS=[
   {k:'APTO',n:'Aptos',c:'var(--c-apto)'},
   {k:'EN PROCESO',n:'En proceso',c:'var(--c-proceso)'},
   {k:'NO APTO',n:'No aptos',c:'var(--c-noapto)'},
-  {k:'NO CONTACTO',n:'No contacto',c:'var(--c-nocont)'},
+  {k:'NO CONTACTO',n:'No contactados',c:'var(--c-nocont)'},
   {k:'SIN TIPIFICAR',n:'Sin tipificar',c:'var(--c-sin)'}
 ];
 let DATA=null, TIPS=[], sortAnuncios={col:'total',dir:-1};
@@ -560,20 +560,17 @@ function avisoGestion(){
 
 /* ---------- KPIs ---------- */
 function kpis(rows){
-  const g=contar(rows), sinTip=g['SIN TIPIFICAR'];
-  const tip_=g.total-sinTip-g['NO CONTACTO']; // tipificados con resultado (sin contar los que no contestaron)
-  // Contacto / No contacto: solo las campañas activas (las filas que traen ese dato)
-  const act=rows.filter(r=>r.n),nAct=act.length,nC=act.filter(r=>r.n==='C').length,nN=act.filter(r=>r.n==='N').length;
-  const baseC=nAct===g.total?'del total':'de las campañas activas ('+fmt(nAct)+')';
+  const g=contar(rows), tip_=g.total-g['SIN TIPIFICAR']-g['NO CONTACTO']; // tipificados con resultado (sin contar los que no contestaron)
   const items=[
     {c:'k-main',n:fmt(g.total),l:'Postulantes',d:'Total en el rango elegido'},
-    {c:'k-main',n:nAct?fmt(nC):'—',l:'Contacto',d:nAct?pct(nC,nAct)+' '+baseC:'Solo campañas activas'},
-    {c:'k-nc',n:nAct?fmt(nN):'—',l:'No contacto',d:nAct?pct(nN,nAct)+' '+baseC:'Solo campañas activas'},
-    {c:'k-apto',n:fmt(g.APTO),l:'Aptos',d:pct(g.APTO,g.total)+' del total · '+pct(g.APTO,tip_)+' de los tipificados'},
+    {c:'k-apto',n:fmt(g.APTO),l:'Aptos',d:pct(g.APTO,g.total)+' del total'},
     {c:'k-no',n:fmt(g['NO APTO']),l:'No aptos',d:pct(g['NO APTO'],g.total)+' del total'},
     {c:'k-proc',n:fmt(g['EN PROCESO']),l:'En proceso',d:pct(g['EN PROCESO'],g.total)+' del total'},
-    {c:'k-sin',n:fmt(sinTip),l:'Sin tipificar',d:pct(sinTip,g.total)+' del total · '+pct(g.total-sinTip,g.total)+' ya tipificados'},
-    {c:'k-main',n:fmt(g.cap),l:'Ingresaron a capacitación',d:pct(g.cap,g.APTO)+' de los aptos'}
+    {c:'k-nc',n:fmt(g['NO CONTACTO']),l:'No contactados',d:pct(g['NO CONTACTO'],g.total)+' del total'},
+    {c:'k-sin',n:fmt(g['SIN TIPIFICAR']),l:'Sin tipificar',d:pct(g['SIN TIPIFICAR'],g.total)+' del total'},
+    {c:'k-main',n:fmt(g.cap),l:'Ingresaron a capacitación',d:pct(g.cap,g.APTO)+' de los aptos'},
+    {c:'k-main',n:pct(g.APTO,tip_),l:'% aptos de los tipificados',d:fmt(g.APTO)+' de '+fmt(tip_)},
+    {c:'k-main',n:pct(g.total-g['SIN TIPIFICAR'],g.total),l:'% ya tipificados',d:fmt(g.total-g['SIN TIPIFICAR'])+' de '+fmt(g.total)}
   ];
   // inversión, CPL y costo por apto: sobre los meses completos que toca el rango elegido
   {
@@ -603,12 +600,12 @@ function contactoCard(rows){
   const cnt=a=>({t:a.length,C:a.filter(r=>r.n==='C').length,N:a.filter(r=>r.n==='N').length,P:a.filter(r=>r.n==='P').length});
   const g=cnt(rs),ges=g.C+g.N;
   let h='<div class="mini">'+
-    '<div><b>'+fmt(g.C)+'</b><span>Contacto · '+pct(g.C,g.t)+' del total</span></div>'+
-    '<div><b>'+fmt(g.N)+'</b><span>No contacto · '+pct(g.N,g.t)+' del total</span></div>'+
+    '<div><b>'+fmt(g.C)+'</b><span>Contactados · '+pct(g.C,g.t)+' del total</span></div>'+
+    '<div><b>'+fmt(g.N)+'</b><span>No contactados · '+pct(g.N,g.t)+' del total</span></div>'+
     '<div><b>'+fmt(g.P)+'</b><span>Por contactar (sin gestionar) · '+pct(g.P,g.t)+'</span></div>'+
     '<div><b>'+pct(g.C,ges)+'</b><span>De los gestionados, contestaron ('+fmt(g.C)+' de '+fmt(ges)+')</span></div></div>';
   const lista=[...agrupar(rs,r=>r.o).entries()].map(([k,a])=>Object.assign({o:k},cnt(a))).sort((x,y)=>y.t-x.t);
-  h+='<div class="scroll"><table><thead><tr><th class="l">Campaña</th><th>Postulantes</th><th>Contacto</th><th>No contacto</th><th>Por contactar</th><th>% de contacto</th></tr></thead><tbody>'+
+  h+='<div class="scroll"><table><thead><tr><th class="l">Campaña</th><th>Postulantes</th><th>Contactados</th><th>No contactados</th><th>Por contactar</th><th>% de contacto</th></tr></thead><tbody>'+
     lista.map(x=>'<tr><td class="l">'+esc(x.o)+'</td><td>'+fmt(x.t)+'</td><td>'+fmt(x.C)+'</td><td>'+fmt(x.N)+'</td><td>'+fmt(x.P)+'</td><td><b>'+pct(x.C,x.C+x.N)+'</b></td></tr>').join('')+
     '<tr class="tot"><td class="l">TOTAL</td><td>'+fmt(g.t)+'</td><td>'+fmt(g.C)+'</td><td>'+fmt(g.N)+'</td><td>'+fmt(g.P)+'</td><td>'+pct(g.C,ges)+'</td></tr></tbody></table></div>';
   el.innerHTML=h;
@@ -840,7 +837,7 @@ function tablaResumen(rows){
   const conF=rows.filter(r=>fd(r));
   if(!conF.length){el.innerHTML='<div class="empty">Sin datos para este filtro.</div>';return;}
   const grupos=[...agrupar(conF,r=>fd(r).slice(0,7)+'|'+r.o).entries()].sort((a,b)=>a[0].split('|')[0]===b[0].split('|')[0]?a[0].localeCompare(b[0]):b[0].localeCompare(a[0]));
-  let h='<table><thead><tr><th class="l">Mes</th><th class="l">Campaña</th><th>Postulantes</th><th>Sin tipificar</th><th>No contacto</th><th>En proceso</th><th>Aptos</th><th>No aptos</th><th>Capacitación</th><th>% aptos / tipificados</th></tr></thead><tbody>';
+  let h='<table><thead><tr><th class="l">Mes</th><th class="l">Campaña</th><th>Postulantes</th><th>Sin tipificar</th><th>No contactados</th><th>En proceso</th><th>Aptos</th><th>No aptos</th><th>Capacitación</th><th>% aptos / tipificados</th></tr></thead><tbody>';
   grupos.forEach(([k,rs])=>{
     const g=contar(rs),t=g.total-g['SIN TIPIFICAR']-g['NO CONTACTO'],p=k.split('|');
     h+='<tr><td class="l">'+mesLabel(p[0])+'</td><td class="l">'+esc(p[1])+'</td><td>'+fmt(g.total)+'</td><td>'+fmt(g['SIN TIPIFICAR'])+'</td><td>'+fmt(g['NO CONTACTO'])+'</td><td>'+fmt(g['EN PROCESO'])+'</td><td>'+fmt(g.APTO)+'</td><td>'+fmt(g['NO APTO'])+'</td><td>'+fmt(g.cap)+'</td><td>'+pct(g.APTO,t)+'</td></tr>';
