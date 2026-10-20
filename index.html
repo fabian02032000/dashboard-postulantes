@@ -312,6 +312,29 @@ th{color:var(--brand-t)}
         <div id="cContacto"></div>
       </section>
 
+      <section class="card s12" id="secInv">
+        <div class="cab">
+          <div><h2>CPL en el tiempo</h2>
+          <p class="hint" id="hCplT">Inversión ÷ postulantes. Sigue las fechas y la campaña que elegiste arriba.</p></div>
+          <div class="rap" id="escCpl" role="group" aria-label="Agrupar por">
+            <button type="button" class="nv" data-e="d">Día</button>
+            <button type="button" class="nv" data-e="s">Semana</button>
+            <button type="button" class="nv" data-e="m">Mes</button>
+          </div>
+        </div>
+        <div class="chart" id="cCplT" role="img" aria-label="CPL en el tiempo"></div>
+      </section>
+      <section class="card s6" id="secInvG">
+        <h2>Gastado por mes</h2>
+        <p class="hint">Lo que se invirtió en anuncios cada mes, dentro de las fechas elegidas.</p>
+        <div class="chart" id="cGastoM" role="img" aria-label="Gastado por mes"></div>
+      </section>
+      <section class="card s6" id="secInvL">
+        <h2>Postulantes por mes</h2>
+        <p class="hint">Solo los de anuncios con inversión, así cuadra con el CPL.</p>
+        <div class="chart" id="cLeadsM" role="img" aria-label="Postulantes por mes"></div>
+      </section>
+
 
       <h2 class="sec" id="secMes">Mes y anuncios<small>mapa de calor, ingreso por semana e inversión</small></h2>
       <section class="card s12 pm pg">
@@ -456,7 +479,7 @@ const diaLabel=d=>{const p=d.split('-');return (+p[2])+' '+MESES[+p[1]-1];};
 const diaLargo=d=>{const p=d.split('-');return (+p[2])+' '+MESES[+p[1]-1]+' '+p[0];};
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const tip=h=>{TIPS.push(h);return TIPS.length-1;};
-const state={oferta:'',modo:'llegada',desde:'',hasta:'',sla:'tc',meta:60,hor:'lms',mes:'',nivel:'c'};
+const state={oferta:'',modo:'llegada',desde:'',hasta:'',sla:'tc',meta:60,hor:'lms',mes:'',nivel:'c',escCpl:'s'};
 try{const m=parseInt(localStorage.getItem('slaMeta'),10);if(m>0)state.meta=m;}catch(e){}
 // fecha que se usa para cada postulante según "Ver por"
 const fd=r=>state.modo==='gestion'?(r.g||r.s||''):r.f;
@@ -575,17 +598,18 @@ function kpis(rows){
     {c:'k-sin',n:fmt(sinTip),l:'Sin tipificar',d:pct(sinTip,g.total)+' del total · '+pct(g.total-sinTip,g.total)+' ya tipificados'},
     {c:'k-main',n:fmt(g.cap),l:'Ingresaron a capacitación',d:pct(g.cap,g.APTO)+' de los aptos'}
   ];
-  // inversión, CPL y costo por apto: sobre los meses completos que toca el rango elegido
+  // inversión, CPL y costo por apto: siguen las fechas y la campaña elegidas arriba
   {
-    const meses=[...new Set(rows.map(r=>r.f.slice(0,7)))].sort();
-    let inv=0,pI=0,aI=0,hay=false,parcial=false;
-    meses.forEach(m=>{const x=cplDatos(m,'c').general;if(x.inv!==null){hay=true;inv+=x.inv;pI+=x.postI;aI+=x.aptI!==undefined?x.aptI:0;if(x.conInv<x.total)parcial=true;}});
-    const nota=meses.length>1?'meses completos, '+mesLabel(meses[0])+' a '+mesLabel(meses[meses.length-1]):meses.length?'mes completo, '+mesLabel(meses[0]):'';
+    const x=invEnRango(state.desde||'0000-00-00',state.hasta||'9999-12-31',ctxInv());
+    const hay=x.n>0;
+    const A=state.desde,B=state.hasta,lab=d=>(A&&B&&A.slice(0,4)!==B.slice(0,4))?diaLargo(d):diaLabel(d);
+    const nota=A&&B?'del '+lab(A)+' al '+lab(B):A?'desde el '+lab(A):B?'hasta el '+lab(B):'todo el periodo';
+    const totalLeads=DATA.filas.filter(r=>(!state.oferta||r.o===state.oferta)&&(!A||r.f>=A)&&(!B||r.f<=B)).length;
     const sinInv='Aún no hay inversión registrada';
     items.push(
-      {c:'k-main',n:hay?sol(inv):'—',l:'Inversión',d:hay?nota+(parcial?' · solo anuncios con inversión':''):sinInv},
-      {c:'k-main',n:hay&&pI?sol(inv/pI):'—',l:'CPL',d:'inversión / postulante'},
-      {c:'k-main',n:hay&&aI?sol(inv/aI):'—',l:'Costo por apto',d:'inversión / apto'}
+      {c:'k-main',n:hay?sol(x.inv):'—',l:'Inversión',d:hay?nota+(x.postI<totalLeads?' · solo anuncios con inversión':'')+(x.estim?' · parte repartida por día':''):sinInv},
+      {c:'k-main',n:hay&&x.postI?sol(x.inv/x.postI):'—',l:'CPL',d:'inversión / postulante'},
+      {c:'k-main',n:hay&&x.aptI?sol(x.inv/x.aptI):'—',l:'Costo por apto',d:'inversión / apto'}
     );
   }
   $('#kpis').innerHTML=items.map(i=>'<div class="kpi '+i.c+'"><div class="n">'+i.n+'</div><div class="l">'+i.l+'</div><div class="d">'+i.d+'</div></div>').join('');
@@ -886,6 +910,164 @@ function requisitos(rows){
 }
 
 
+/* ---------- inversión según las fechas: KPIs, CPL en el tiempo y barras por mes ---------- */
+// Gasto por anuncio y por día. Viene de Meta día a día (DATA.invd); si un mes solo trae el monto del mes
+// (anotado a mano), se reparte parejo entre sus días y se marca como estimado.
+let INVD=null;
+function gastoDiarioAnuncios(){
+  if(INVD)return INVD;
+  const ads=new Map();
+  const get=(c,j,a)=>{const k=JSON.stringify([c,j,a]);let o=ads.get(k);if(!o){o={k,c,j,a,dias:new Map(),estim:new Set()};ads.set(k,o);}return o;};
+  const dd=DATA.invd||{a:[],d:[]};
+  (dd.d||[]).forEach(x=>{const t=(dd.a||[])[x[1]];if(!t||!(x[2]>0))return;const o=get(t[0],t[1],t[2]);o.dias.set(x[0],(o.dias.get(x[0])||0)+x[2]);});
+  const hoy=iso(new Date());
+  (DATA.inv||[]).forEach(x=>{
+    if(!(x.s>0))return;
+    const o=get(x.c,x.j,x.a);
+    let tiene=false;o.dias.forEach((v,d)=>{if(d.slice(0,7)===x.m)tiene=true;});
+    if(tiene)return;
+    const p=x.m.split('-').map(Number),n=new Date(p[0],p[1],0).getDate();let dias=[];
+    for(let i=1;i<=n;i++){const d=x.m+'-'+String(i).padStart(2,'0');if(d<=hoy)dias.push(d);}
+    if(!dias.length)dias=[x.m+'-01'];
+    dias.forEach(d=>{o.dias.set(d,(o.dias.get(d)||0)+x.s/dias.length);o.estim.add(d);});
+  });
+  INVD=[...ads.values()].filter(o=>o.dias.size>0);
+  return INVD;
+}
+// postulantes y aptos de cada anuncio por día de llegada (respeta la campaña elegida)
+function leadsPorAnuncioDia(){
+  const m=new Map();
+  DATA.filas.forEach(r=>{
+    if(state.oferta&&r.o!==state.oferta)return;
+    const k=JSON.stringify([sinDato(r.c,'(sin campaña)'),sinDato(r.j,'(sin conjunto)'),sinDato(r.a,'(sin anuncio)')]);
+    let a=m.get(k);if(!a){a=new Map();m.set(k,a);}
+    let o=a.get(r.f);if(!o){o={p:0,a:0};a.set(r.f,o);}
+    o.p++;if(r.e==='APTO')o.a++;
+  });
+  return m;
+}
+const ctxInv=()=>({ads:gastoDiarioAnuncios(),leads:leadsPorAnuncioDia()});
+// inversión y postulantes entre dos fechas (incluidas): solo cuentan los anuncios que tuvieron inversión en ese tramo
+function invEnRango(d0,d1,ctx){
+  let inv=0,postI=0,aptI=0,n=0,estim=false;
+  ctx.ads.forEach(o=>{
+    let s=0,est=false;
+    o.dias.forEach((v,d)=>{if(d>=d0&&d<=d1){s+=v;if(o.estim.has(d))est=true;}});
+    if(!(s>0))return;
+    const L=ctx.leads.get(o.k);
+    if(state.oferta&&!L)return;
+    let p=0,a=0;
+    if(L)L.forEach((x,d)=>{if(d>=d0&&d<=d1){p+=x.p;a+=x.a;}});
+    inv+=s;postI+=p;aptI+=a;n++;if(est)estim=true;
+  });
+  return {inv,postI,aptI,n,estim};
+}
+// cortes de tiempo (día, semana de lunes a domingo o mes) dentro del rango elegido
+function serieInv(esc,ctx){
+  let min='',max='';
+  ctx.ads.forEach(o=>o.dias.forEach((v,d)=>{if(v>0){if(!min||d<min)min=d;if(!max||d>max)max=d;}}));
+  if(!min)return [];
+  const d0=state.desde&&state.desde>min?state.desde:min,d1=state.hasta&&state.hasta<max?state.hasta:max;
+  if(d0>d1)return [];
+  const ini=new Date(d0+'T00:00:00'),fin=new Date(d1+'T00:00:00'),cortes=[];
+  if(esc==='d'){
+    for(let d=new Date(ini);d<=fin;d.setDate(d.getDate()+1)){const k=iso(d);cortes.push({a:k,b:k});}
+  }else if(esc==='s'){
+    const c=new Date(ini);c.setDate(c.getDate()-((c.getDay()+6)%7));
+    while(c<=fin){
+      const a=iso(c),e=new Date(c);e.setDate(e.getDate()+6);const b=iso(e);
+      cortes.push({a:a<d0?d0:a,b:b>d1?d1:b,parcial:a<d0||b>d1});
+      c.setDate(c.getDate()+7);
+    }
+  }else{
+    const c=new Date(ini.getFullYear(),ini.getMonth(),1);
+    while(c<=fin){
+      const a=iso(c),b=iso(new Date(c.getFullYear(),c.getMonth()+1,0));
+      cortes.push({a:a<d0?d0:a,b:b>d1?d1:b,parcial:a<d0||b>d1,mes:a.slice(0,7)});
+      c.setMonth(c.getMonth()+1);
+    }
+  }
+  return cortes.map(k=>Object.assign(k,invEnRango(k.a,k.b,ctx)));
+}
+const cortesTxt=k=>k.a===k.b?diaLargo(k.a):diaLabel(k.a)+' al '+diaLargo(k.b);
+function dibujarCplTiempo(el,pts,prom){
+  const vals=pts.map(p=>p.postI&&p.inv>0?p.inv/p.postI:null);
+  if(vals.every(v=>v===null)){el.innerHTML='<div class="empty">Sin inversión con postulantes en estas fechas.</div>';return;}
+  const W=el.clientWidth||600,H=260,m={l:52,r:14,t:16,b:28};
+  const iw=W-m.l-m.r,ih=H-m.t-m.b;
+  const mx=Math.max(...vals.filter(v=>v!==null),prom||0),{step,top}=ticks(mx);
+  const x=i=>m.l+(pts.length<2?iw/2:i*iw/(pts.length-1)),y=v=>m.t+ih-v/top*ih;
+  const ej=v=>v.toLocaleString('es-PE',{minimumFractionDigits:step<1?2:0,maximumFractionDigits:step<1?2:0});
+  let s='<svg viewBox="0 0 '+W+' '+H+'">';
+  for(let v=0;v<=top+step/1000;v+=step){
+    s+='<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+y(v)+'" y2="'+y(v)+'" style="stroke:'+(v===0?'var(--axis)':'var(--grid)')+'" stroke-width="1"/>';
+    s+='<text x="'+(m.l-8)+'" y="'+(y(v)+4)+'" text-anchor="end">'+ej(v)+'</text>';
+  }
+  const cada=Math.max(1,Math.ceil(pts.length/(W<520?4:7)));
+  pts.forEach((p,i)=>{if(i%cada===0)s+='<text x="'+x(i)+'" y="'+(H-6)+'" text-anchor="middle">'+(p.mes?mesLabel(p.mes):diaLabel(p.a))+'</text>';});
+  if(prom){
+    s+='<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+y(prom)+'" y2="'+y(prom)+'" style="stroke:var(--muted)" stroke-width="1" stroke-dasharray="4 4"/>';
+    s+='<text x="'+(W-m.r)+'" y="'+(y(prom)-5)+'" text-anchor="end" style="paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round">Promedio '+sol(prom)+'</text>';
+  }
+  let d='',ant=false;
+  vals.forEach((v,i)=>{if(v===null){ant=false;return;}d+=(ant?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)+' ';ant=true;});
+  s+='<path d="'+d+'" fill="none" style="stroke:var(--c-main)" stroke-width="2" stroke-linejoin="round"/>';
+  if(pts.length<=40)vals.forEach((v,i)=>{if(v!==null)s+='<circle cx="'+x(i)+'" cy="'+y(v)+'" r="4" style="fill:var(--c-main);stroke:var(--surface)" stroke-width="2"/>';});
+  s+='<line class="hx" y1="'+m.t+'" y2="'+(m.t+ih)+'" style="stroke:var(--axis)" stroke-width="1" visibility="hidden"/>';
+  s+='<circle class="hp" r="5" style="fill:var(--c-main);stroke:var(--surface)" stroke-width="2" visibility="hidden"/>';
+  s+='<rect data-line="1" x="'+m.l+'" y="'+m.t+'" width="'+iw+'" height="'+ih+'" fill="transparent"/></svg>';
+  el.innerHTML=s;
+  const svg=el.querySelector('svg'),hx=svg.querySelector('.hx'),hp=svg.querySelector('.hp'),ov=svg.querySelector('[data-line]');
+  ov.addEventListener('mousemove',e=>{
+    const r=svg.getBoundingClientRect(),px=(e.clientX-r.left)*(W/r.width);
+    let i=pts.length<2?0:Math.round((px-m.l)/iw*(pts.length-1));i=Math.max(0,Math.min(pts.length-1,i));
+    const p=pts[i],v=vals[i];
+    hx.setAttribute('x1',x(i));hx.setAttribute('x2',x(i));hx.setAttribute('visibility','visible');
+    if(v!==null){hp.setAttribute('cx',x(i));hp.setAttribute('cy',y(v));hp.setAttribute('visibility','visible');}else hp.setAttribute('visibility','hidden');
+    showTip(e,'<b>'+esc(p.mes?mesLabel(p.mes)+(p.parcial?' (parcial)':''):cortesTxt(p))+'</b>'+
+      '<div class="r">CPL: <b>'+(v===null?'—':sol(v))+'</b></div>'+
+      '<div class="r">Inversión: '+(p.inv>0?sol(p.inv):'sin gasto')+' · Postulantes: '+fmt(p.postI)+'</div>');
+  });
+  ov.addEventListener('mouseleave',()=>{hx.setAttribute('visibility','hidden');hp.setAttribute('visibility','hidden');hideTip();});
+}
+// columnas simples (una sola serie) con el número encima de cada una
+function dibujarColumnasMes(el,items,fmtV){
+  if(!items.length||items.every(i=>!i.v)){el.innerHTML='<div class="empty">Sin datos para estas fechas.</div>';return;}
+  const W=el.clientWidth||400,H=240,m={l:52,r:8,t:20,b:26};
+  const iw=W-m.l-m.r,ih=H-m.t-m.b;
+  const {step,top}=ticks(Math.max(...items.map(i=>i.v)));
+  const y=v=>m.t+ih-v/top*ih,slot=iw/items.length,bw=Math.min(64,slot*0.62);
+  let s='<svg viewBox="0 0 '+W+' '+H+'">';
+  for(let v=0;v<=top+step/1000;v+=step){
+    s+='<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+y(v)+'" y2="'+y(v)+'" style="stroke:'+(v===0?'var(--axis)':'var(--grid)')+'"/>';
+    s+='<text x="'+(m.l-8)+'" y="'+(y(v)+4)+'" text-anchor="end">'+v.toLocaleString('es-PE')+'</text>';
+  }
+  items.forEach((o,i)=>{
+    const x0=m.l+i*slot+(slot-bw)/2,y1=y(o.v);
+    s+='<rect data-t="'+tip(o.tip)+'" x="'+x0+'" y="'+y1+'" width="'+bw+'" height="'+Math.max(y(0)-y1,0)+'" rx="2" style="fill:var(--c-main)"/>';
+    s+='<text class="val" x="'+(x0+bw/2)+'" y="'+(y1-5)+'" text-anchor="middle">'+fmtV(o.v)+'</text>';
+    s+='<text x="'+(x0+bw/2)+'" y="'+(H-6)+'" text-anchor="middle">'+mesLabel(o.mes)+'</text>';
+  });
+  el.innerHTML=s+'</svg>';
+}
+function invTiempo(){
+  const ctx=ctxInv();
+  const hay=ctx.ads.length>0;
+  ['#secInv','#secInvG','#secInvL'].forEach(q=>{$(q).style.display=hay?'':'none';});
+  if(!hay)return;
+  document.querySelectorAll('#escCpl button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.e===state.escCpl?'true':'false'));
+  const pts=serieInv(state.escCpl,ctx);
+  const tot=invEnRango(state.desde||'0000-00-00',state.hasta||'9999-12-31',ctx);
+  const nombre={d:'por día',s:'por semana (lunes a domingo)',m:'por mes'}[state.escCpl];
+  $('#hCplT').textContent='Inversión ÷ postulantes de los anuncios con inversión, '+nombre+'. Sigue las fechas y la campaña que elegiste arriba.';
+  dibujarCplTiempo($('#cCplT'),pts,tot.postI?tot.inv/tot.postI:0);
+  const ms=serieInv('m',ctx);
+  const tipMes=k=>'<b>'+esc(mesLabel(k.mes)+(k.parcial?' (parcial)':''))+'</b><div class="r">Inversión: <b>'+sol(k.inv)+'</b></div><div class="r">Postulantes: <b>'+fmt(k.postI)+'</b></div><div class="r">CPL: '+(k.postI?sol(k.inv/k.postI):'—')+'</div>';
+  dibujarColumnasMes($('#cGastoM'),ms.map(k=>({mes:k.mes,v:Math.round(k.inv),tip:tipMes(k)})),v=>'S/ '+v.toLocaleString('es-PE'));
+  dibujarColumnasMes($('#cLeadsM'),ms.map(k=>({mes:k.mes,v:k.postI,tip:tipMes(k)})),v=>fmt(v));
+}
+$('#escCpl').onclick=e=>{const b=e.target.closest('button');if(!b)return;state.escCpl=b.dataset.e;invTiempo();};
+
 /* ---------- mes en detalle: mapa de calor, semanas y CPL ---------- */
 const DIAS_SEM=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const sol=n=>'S/ '+n.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1058,6 +1240,7 @@ function render(){
   kpis(rows);
   embudo(rows);
   contactoCard(rows);
+  invTiempo();
   dibujarDia($('#cDia'),rows);
   dibujarMeses($('#cMes'),rows);
   mesDetalle();
